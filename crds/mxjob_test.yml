@@ -1,10 +1,10 @@
 apiVersion: "mpba.fbk.eu/v1"
 kind: MXJob
 metadata:
-  name: test01
+  name: test02
 spec:
     - replicas: 1 # 1 Master
-      mxReplicaType: SCHEDULER
+      replicaType: SCHEDULER
       template:
         spec:
           containers:
@@ -13,7 +13,7 @@ spec:
               imagePullPolicy: Always
           restartPolicy: OnFailure
     - replicas: 1 # 1 Workers
-      mxReplicaType: SERVER
+      replicaType: SERVER
       template:
         spec:
           containers:
@@ -22,7 +22,7 @@ spec:
               imagePullPolicy: Always
           restartPolicy: OnFailure
     - replicas: 1  # 1 Parameter server
-      mxReplicaType: WORKER
+      replicaType: WORKER
       template:
         spec:
           containers:

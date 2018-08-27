@@ -1,3 +1,4 @@
+NAMESPACE = "default"
 DOMAIN = "mpba.fbk.eu"
 CRD = "./crds/crd/mxjob.yml"
 CRD_NAME_SINGULAR = "mxjob"
