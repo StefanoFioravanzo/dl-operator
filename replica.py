@@ -100,7 +100,10 @@ class Replica:
         service = client.V1Service()
         service.api_version = "v1"
         service.kind = "Service"
-        service.metadata = client.V1ObjectMeta(name=f"{self.replica_name}")
+        service.metadata = client.V1ObjectMeta(name=f"{self.replica_name}",
+                                               labels={"service_name": self.replica_name,
+                                                       "job_name": self.job_name}
+                                               )
         # Set Service object to target port on any Pod with that label.
         # The label selection allows Kubernetes to determine which Pod
         # should receive traffic when the service is used.
@@ -124,6 +127,20 @@ class Replica:
             logging.warning(f"Multiple pods found with labels name {self.replica_name} found during clean up")
             assert False
         self.api_instance.delete_namespaced_pod(
+            self.replica_name,
+            settings.NAMESPACE,
+            body=client.V1DeleteOptions())
+
+        logger.info(f"Deleting service {self.replica_name}...")
+        selector = f"service_name={self.replica_name}"
+        service_list = self.api_instance.list_namespaced_service(settings.NAMESPACE, label_selector=selector)
+        if len(service_list.items) == 0:
+            logging.warning(f"No service with name {self.replica_name} found during clean up")
+            return
+        if len(service_list.items) > 1:
+            logging.warning(f"Multiple services found with labels name {self.replica_name} found during clean up")
+            assert False
+        self.api_instance.delete_namespaced_service(
             self.replica_name,
             settings.NAMESPACE,
             body=client.V1DeleteOptions())

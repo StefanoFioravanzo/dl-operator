@@ -34,6 +34,7 @@ class DLJob(ABC):
         self.core_v1_client = client.CoreV1Api()
 
         self.clean_up_pods()
+        self.clean_up_services()
         self.create_replicas()
         self.reconcile()
 
@@ -138,7 +139,35 @@ class DLJob(ABC):
                 body=client.V1DeleteOptions())
 
         # wait for the resources to be deleted
-        while len(api_instance.list_namespaced_pod(settings.NAMESPACE, label_selector=f"pod_name in ({pod_names})").items):
+        while len(api_instance.list_namespaced_pod(settings.NAMESPACE,
+                                                   label_selector=f"pod_name in ({', '.join(pod_names)})").items):
+            pass
+
+    def clean_up_services(self):
+        """
+        Delete services that match the selection job_name=self.job_name.
+        This function is called every time a new job is created to delete any previous pod
+        associated to the same job name. This avoid collisions and unpleasant behaviors.
+        """
+        api_instance = client.CoreV1Api()
+        logger.info(f"Deleting services matching {self.job_name} job name")
+        selector = f"job_name={self.job_name}"
+        service_list = api_instance.list_namespaced_service(settings.NAMESPACE, label_selector=selector)
+        if len(service_list.items) == 0:
+            return
+        logger.info(f"Deleting {len(service_list.items)} services.")
+        service_names = list()
+        for service in service_list.items:
+            logger.info(f"Deleting service {service.metadata.name}.")
+            service_names.append(service.metadata.name)
+            api_instance.delete_namespaced_service(
+                service.metadata.name,
+                settings.NAMESPACE,
+                body=client.V1DeleteOptions())
+
+        # wait for the resources to be deleted
+        while len(api_instance.list_namespaced_service(settings.NAMESPACE,
+                                                       label_selector=f"service_name in ({', '.join(service_names)})").items):
             pass
 
     @staticmethod

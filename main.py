@@ -7,6 +7,7 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(os.path.basename(__file__))
 
 if __name__ == "__main__":
+    logging.getLogger("kubernetes").setLevel(logging.CRITICAL)
     logger.info("Creating Controller...")
     controller = DLOperator()
     controller.create_crd(crd_path=settings.CRD)
