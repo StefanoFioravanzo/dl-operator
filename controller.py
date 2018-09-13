@@ -15,8 +15,6 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(os.path.basename(__file__))
 
-# logging.config.fileConfig('logging.ini')
-
 
 class DLOperator:
 

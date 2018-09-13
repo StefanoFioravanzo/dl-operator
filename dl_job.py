@@ -199,12 +199,12 @@ class MXJob(DLJob):
     def validate_spec(self):
         super(MXJob, self).validate_spec()
 
-    def get_environment_variables(self, replica_spec, replica_index):
+    def get_environment_variables(self, replica_spec, replica_index, scheduler_ip=""):
         env = {
             # define later
             "DMLC_ROLE": replica_spec['replicaType'].casefold(),
             # define later
-            "DMLC_PS_ROOT_URI": self.generate_replica_name("scheduler", self.job_name),
+            "DMLC_PS_ROOT_URI": scheduler_ip,
             "DMLC_PS_ROOT_PORT": self.mx_port,
             # auto conversion to str not supported by client for safety reasons
             "DMLC_NUM_SERVER": str(self.number_of_replicas("SERVER")),
@@ -212,6 +212,19 @@ class MXJob(DLJob):
             "PS_VERBOSE": "2"
         }
         return env
+
+    def reconcile(self):
+        logger.info(f"MXJob: Reconcile Job {self.job_name}")
+        scheduler_ip = ""
+        for r in self.replicas:
+            # TODO: Need to remove this once we solve the hostname resolve issue
+            if r.replica_type != "SCHEDULER":
+                r.container_params['env']['DMLC_PS_ROOT_URI'] = scheduler_ip
+
+            r.reconcile()
+
+            if r.replica_type == "SCHEDULER":
+                scheduler_ip = r.scheduler_ip
 
 
 class TFJob(DLJob):

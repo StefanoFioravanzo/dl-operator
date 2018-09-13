@@ -19,6 +19,7 @@ class Replica:
         self.job_name = job_name
         self.template = template
         self.status = "None"
+        self.scheduler_ip = ""
 
         # TODO: create a function to check these parameters
         self.container_params = kwargs
@@ -66,12 +67,12 @@ class Replica:
 
         container_spec = self.template["spec"]["containers"][0]
         # add container properties to container spec
-        # if 'env' in self.container_params:
-        #     # add env variables to container_spec
-        #     container_spec['env'] = [
-        #         client.V1EnvVar(name=k, value=v)
-        #         for k, v in self.container_params['env'].items()
-        #     ]
+        if 'env' in self.container_params:
+            # add env variables to container_spec
+            container_spec['env'] = [
+                client.V1EnvVar(name=k, value=str(v))
+                for k, v in self.container_params['env'].items()
+            ]
         if 'volumes' in self.container_params:
             # add volumes spec to container
             # TODO: look at how to mount a volume (volumeMounts vs volumeDevices?)
@@ -85,11 +86,20 @@ class Replica:
             for k, v in client.V1Container.attribute_map.items()
             if v in container_spec
         }
-        pod_spec = client.V1PodSpec(containers=[client.V1Container(**inv_map)])
+        pod_spec = client.V1PodSpec(containers=[client.V1Container(**inv_map)], hostname=self.replica_name)
 
         pod.spec = pod_spec
         self.api_instance.create_namespaced_pod(namespace=settings.NAMESPACE, body=pod)
         logger.info(f"Created Pod for replica {self.replica_name} with container spec {inv_map}")
+
+        # TODO: Need to solve the Hostname resolve. Now only solution is to use direct IP address.
+        # if scheduler, we need to get scheduler IP address and inject it in the other pods.
+        if self.replica_type == "SCHEDULER":
+            selector = f"pod_name={self.replica_name}"
+            pod_list = client.models.v1_pod_list.V1PodList(items=[])
+            while len(pod_list.items) == 0:
+                pod_list = self.api_instance.list_namespaced_pod(settings.NAMESPACE, label_selector=selector)
+                self.scheduler_ip = pod_list.items[0].status.pod_ip
 
     def create_service(self, ports):
         """Creates an tandem network service for this replica.
@@ -100,8 +110,8 @@ class Replica:
         service = client.V1Service()
         service.api_version = "v1"
         service.kind = "Service"
-        service.metadata = client.V1ObjectMeta(name=f"{self.replica_name}",
-                                               labels={"service_name": self.replica_name,
+        service.metadata = client.V1ObjectMeta(name=f"{self.replica_name}-service",
+                                               labels={"service_name": f"{self.replica_name}-service",
                                                        "job_name": self.job_name}
                                                )
         # Set Service object to target port on any Pod with that label.
@@ -131,17 +141,18 @@ class Replica:
             settings.NAMESPACE,
             body=client.V1DeleteOptions())
 
-        logger.info(f"Deleting service {self.replica_name}...")
-        selector = f"service_name={self.replica_name}"
+        logger.info(f"Deleting service {self.replica_name}-service...")
+        selector = f"service_name={self.replica_name}-service"
         service_list = self.api_instance.list_namespaced_service(settings.NAMESPACE, label_selector=selector)
         if len(service_list.items) == 0:
-            logging.warning(f"No service with name {self.replica_name} found during clean up")
+            logging.warning(f"No service with name {self.replica_name}-service found during clean up")
             return
         if len(service_list.items) > 1:
-            logging.warning(f"Multiple services found with labels name {self.replica_name} found during clean up")
+            logging.warning(
+                f"Multiple services found with labels name {self.replica_name}-service found during clean up")
             assert False
         self.api_instance.delete_namespaced_service(
-            self.replica_name,
+            f"{self.replica_name}-service",
             settings.NAMESPACE,
             body=client.V1DeleteOptions())
 
