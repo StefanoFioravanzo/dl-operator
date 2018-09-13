@@ -12,8 +12,9 @@ import dl_job
 import settings.settings as settings
 
 import logging
+
 logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(os.path.basename(__file__))
+logger = logging.getLogger()
 
 
 class DLOperator:
