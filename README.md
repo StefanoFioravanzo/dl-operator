@@ -54,8 +54,28 @@ Also, the following abstract methods must be implemented:
 
 A `Replica` object encapsulates all the logic related to one running pod. One replica manages the reconciliation process, from pod-service creation until its death.
 
+#### Run
+
+To test and run the operator it is advisable to use a local single-node cluster via `minikube`. The operator will create the necessary custom resource definitions by itself and clean up all the allocated resources when killed.
+
+```bash
+# start minikube cluster
+minikube start
+# check cluster status
+minikube status  
+# check kubectl is using the proper context
+kubectl config get-contexts
+
+# run the operator
+python main.py
+
+# depoy dljob
+kubectl create -f crds/maxjob_test.yml
+```
+
 ## TODO
 
 - [ ] Allow network communication via hostnames
 - [ ] Monitor process exit statuses and react accordingly
 - [ ] Improve job status and result reporting
+- [ ] Add automated tests
